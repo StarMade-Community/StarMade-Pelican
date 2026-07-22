@@ -75,6 +75,21 @@ is_debian_like() {
   case "$OS_ID $OS_LIKE" in *debian*|*ubuntu*) return 0 ;; *) return 1 ;; esac
 }
 
+# Best-effort public IPv4 of this host. Echoes the IP, or nothing if it can't be
+# determined (offline, IPv6-only, etc.). Used to prefill the panel URL so a
+# hand-typed IP (and its typos) isn't the only option.
+detect_public_ip() {
+  local ip svc
+  for svc in https://api.ipify.org https://ifconfig.me/ip https://icanhazip.com; do
+    ip="$(curl -4 -fsS --max-time 5 "$svc" 2>/dev/null | tr -d '[:space:]')"
+    case "$ip" in
+      '' | *[!0-9.]*) ip="" ;;             # require a bare IPv4
+      *) printf '%s' "$ip"; return 0 ;;
+    esac
+  done
+  return 0
+}
+
 # ── Answers file (repeatable / non-interactive runs) ───────────────────────────
 # Values are written as KEY='value'. Secrets are only persisted when the user
 # opts in. The file lives in the repo and is git-ignored.

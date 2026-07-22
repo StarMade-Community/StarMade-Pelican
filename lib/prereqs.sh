@@ -31,8 +31,21 @@ ensure_panel() {
   fi
   need_root
   log "Deploying Pelican Panel to $PELICAN_DIR …"
-  local app_url le_email
-  ask app_url "Public URL the panel will serve on (e.g. https://panel.example.com or http://SERVER_IP)" "http://localhost"
+  local app_url le_email detected default_url host
+  detected="$(detect_public_ip)"
+  default_url="http://${detected:-localhost}"
+  [ -n "$detected" ] && log "Detected this server's public IP: ${detected}"
+  ask app_url "Public URL for the PANEL itself (its own address on ports 80/443 — not a game port)" "$default_url"
+  # Normalize: ensure a scheme and drop any trailing slash.
+  case "$app_url" in http://* | https://*) ;; *) app_url="http://$app_url" ;; esac
+  app_url="${app_url%/}"
+  # Typo guard: Pelican builds its Caddy vhost from this host, so a wrong host makes
+  # every page a blank 200. Flag a mismatch against the detected IP before deploying.
+  host="${app_url#*://}"; host="${host%%[:/]*}"
+  if [ -n "$detected" ] && [ "$host" != "$detected" ] && [ "$host" != "localhost" ]; then
+    warn "Entered host '${host}' ≠ this server's detected public IP '${detected}'."
+    confirm "Use '${host}' anyway?" n || { app_url="http://${detected}"; ok "Using http://${detected}"; }
+  fi
   ask le_email "Email for Let's Encrypt (used only for https:// URLs)" "$USER_EMAIL_DEFAULT"
 
   $SUDO mkdir -p "$PELICAN_DIR"
@@ -44,6 +57,26 @@ ensure_panel() {
 
   ( cd "$PELICAN_DIR" && $SUDO docker compose up -d ) || die "Panel compose up failed."
   ok "Panel container starting. Give it ~30s to run migrations."
+
+  # Self-check: Caddy only serves the panel for the APP_URL host, so probe locally
+  # with that Host header. A 2xx/3xx with a body = good; an empty 200 = the host is
+  # wrong (the classic mistyped-IP → blank-page trap).
+  local host_only resp code size served=0
+  host_only="${app_url#*://}"; host_only="${host_only%%[:/]*}"
+  log "Verifying the panel answers for host ${host_only}…"
+  for _ in $(seq 1 12); do
+    resp="$(curl -s -o /dev/null -w '%{http_code} %{size_download}' -H "Host: ${host_only}" --max-time 5 http://127.0.0.1/ 2>/dev/null || echo '000 0')"
+    code="${resp% *}"; size="${resp##* }"
+    case "$code" in 2* | 3*) [ "${size:-0}" -gt 0 ] 2>/dev/null && { served=1; break; } ;; esac
+    sleep 3
+  done
+  if [ "$served" = 1 ]; then
+    ok "Panel is serving (HTTP ${code}) for ${host_only} → ${app_url}"
+  else
+    warn "Panel returned an empty response for host '${host_only}'."
+    warn "If the page is blank in your browser, APP_URL is wrong. Fix it with:"
+    warn "  sudo sed -i 's#\"http://[^\"]*\"#\"${app_url}\"#' ${PELICAN_DIR}/compose.yml && (cd ${PELICAN_DIR} && sudo docker compose up -d)"
+  fi
 
   hr
   warn "One-time panel setup (in the browser + one command):"

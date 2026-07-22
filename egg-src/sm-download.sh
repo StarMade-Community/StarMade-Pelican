@@ -47,7 +47,10 @@ BUILDPATH="$(printf '%s' "$LINE" | awk '{print $2}' | sed 's#^\./##')"
 ZIP_URL="${ORIGIN_BASE}/${BUILDPATH}.zip"
 log "Resolved version ${VER}  ->  ${ZIP_URL}"
 
-TMP="$(mktemp -d)"
+# Stage on the server volume (cwd), NOT /tmp: Wings mounts the container's /tmp as
+# a small tmpfs (~100 MB default), so downloading the ~600 MB build there dies with
+# "curl: (23) Failure writing output to destination". The volume has the real disk quota.
+TMP="$(mktemp -d "${PWD}/.sm-download.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 
 log "Downloading…"
@@ -61,6 +64,7 @@ fi
 log "Extracting…"
 mkdir -p "$TMP/x"
 unzip -oq "$TMP/sm.zip" -d "$TMP/x"
+rm -f "$TMP/sm.zip"   # free ~600 MB before the copy so the volume peak stays low
 
 # The current build zip is rooted (StarMade.jar at top). Stay tolerant of a future
 # build that wraps everything in a single top-level directory.

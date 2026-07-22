@@ -1,0 +1,46 @@
+# Pelican Panel — Docker deployment.
+# Adapted from the official pelican-dev/panel compose.yml. `build:` is dropped so
+# this pulls the published image instead of building locally. Data lives in the
+# pelican-data volume (SQLite by default — no separate database container needed).
+#
+# setup.sh substitutes __APP_URL__ and __LE_EMAIL__ before running `docker compose up -d`.
+services:
+  panel:
+    image: ghcr.io/pelican-dev/panel:latest
+    container_name: pelican-panel
+    restart: unless-stopped
+    networks:
+      - default
+    ports:
+      - "80:80"
+      - "443:443"
+      # - "81:80"   # if behind a reverse proxy, uncomment and comment 80/443 above
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - pelican-data:/pelican-data
+      - pelican-logs:/var/www/html/storage/logs
+      - type: volume
+        source: pelican-data
+        target: /var/www/html/plugins
+        volume:
+          subpath: plugins
+    environment:
+      APP_URL: "__APP_URL__"
+      LE_EMAIL: "__LE_EMAIL__"
+      APP_ENV: "production"
+      APP_DEBUG: "false"
+      MAIL_DRIVER: "log"
+      XDG_DATA_HOME: /pelican-data
+      # BEHIND_PROXY: "true"        # uncomment when running behind a proxy
+      # SKIP_CADDY: "true"          # uncomment when terminating TLS elsewhere
+
+volumes:
+  pelican-data:
+  pelican-logs:
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

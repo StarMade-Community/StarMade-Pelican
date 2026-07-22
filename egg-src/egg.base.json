@@ -1,0 +1,161 @@
+{
+  "_comment": "StarMade egg for Pelican / Pterodactyl. Generated from egg-src/ by build-egg.sh — do not hand-edit egg/egg-starmade.json; edit egg-src/ and rebuild.",
+  "meta": {
+    "version": "PTDL_v2",
+    "update_url": null
+  },
+  "exported_at": "1970-01-01T00:00:00+0000",
+  "name": "StarMade",
+  "author": "garretreichenbach@gmail.com",
+  "description": "StarMade dedicated server. Downloads the current build straight from the official CDN (release/dev/pre/archive branches, any version) and launches it with the correct StarLoader agent + module-open JVM arguments for modern (Java 21) builds. Server settings are driven from panel variables via server.cfg.",
+  "features": [
+    "pid_limit"
+  ],
+  "docker_images": {
+    "Java 21 (StarMade 0.3+)": "ghcr.io/pterodactyl/yolks:java_21",
+    "Java 8 (legacy < 0.3)": "ghcr.io/pterodactyl/yolks:java_8"
+  },
+  "file_denylist": [],
+  "startup": "bash start.sh",
+  "config": {
+    "files": "{}",
+    "startup": "{\r\n    \"done\": \"now waiting for connections\"\r\n}",
+    "logs": "{}",
+    "stop": "/shutdown 10"
+  },
+  "scripts": {
+    "installation": {
+      "script": "#!/bin/bash\necho 'placeholder — replaced by build-egg.sh'\n",
+      "container": "ghcr.io/pelican-eggs/installers:debian",
+      "entrypoint": "bash"
+    }
+  },
+  "variables": [
+    {
+      "name": "Update Branch",
+      "description": "Which StarMade release channel to install from: release, dev, pre, or archive.",
+      "env_variable": "STARMADE_BRANCH",
+      "default_value": "release",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|in:release,dev,pre,archive"
+    },
+    {
+      "name": "Version",
+      "description": "Specific StarMade version to install (e.g. 0.304.7), or 'latest' for the newest build on the chosen branch. Invalid versions fall back to latest. Applied on (re)install and, if AUTO_UPDATE is on, at each boot.",
+      "env_variable": "STARMADE_VERSION",
+      "default_value": "latest",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|max:32"
+    },
+    {
+      "name": "Auto-update on boot",
+      "description": "When enabled (1), re-pull the latest build for the chosen branch every time the server starts. Leave off (0) to keep a fixed version until you reinstall.",
+      "env_variable": "AUTO_UPDATE",
+      "default_value": "0",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|boolean"
+    },
+    {
+      "name": "Server Name",
+      "description": "Public/display name on the server list (server.cfg SERVER_LIST_NAME, max 64 chars).",
+      "env_variable": "SERVER_NAME",
+      "default_value": "StarMade Server",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:64"
+    },
+    {
+      "name": "Server Description",
+      "description": "Description on the server list (server.cfg SERVER_LIST_DESCRIPTION, max 128 chars). Blank keeps the default.",
+      "env_variable": "SERVER_DESCRIPTION",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:128"
+    },
+    {
+      "name": "Announce Hostname",
+      "description": "Public hostname/IP clients use to reach this server (server.cfg HOST_NAME_TO_ANNOUNCE_TO_SERVER_LIST). REQUIRED for 'Announce to Server List' to work — e.g. play.example.com.",
+      "env_variable": "SERVER_HOSTNAME",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:128"
+    },
+    {
+      "name": "Max Players",
+      "description": "Maximum simultaneous clients (server.cfg MAX_CLIENTS).",
+      "env_variable": "MAX_CLIENTS",
+      "default_value": "32",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|between:1,256"
+    },
+    {
+      "name": "Announce to Server List",
+      "description": "List this server publicly on the StarMade server list (server.cfg ANNOUNCE_SERVER_TO_SERVERLIST).",
+      "env_variable": "ANNOUNCE_SERVER_TO_SERVERLIST",
+      "default_value": "0",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|boolean"
+    },
+    {
+      "name": "Use StarMade Authentication",
+      "description": "Allow star-made.org account authentication (server.cfg USE_STARMADE_AUTHENTICATION).",
+      "env_variable": "USE_STARMADE_AUTHENTICATION",
+      "default_value": "0",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|boolean"
+    },
+    {
+      "name": "Require StarMade Authentication",
+      "description": "Require authenticated accounts to join (needs Use Authentication on) — server.cfg REQUIRE_STARMADE_AUTHENTICATION.",
+      "env_variable": "REQUIRE_STARMADE_AUTHENTICATION",
+      "default_value": "0",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|boolean"
+    },
+    {
+      "name": "Use Whitelist",
+      "description": "Only allow players listed in whitelist.txt (server.cfg USE_WHITELIST).",
+      "env_variable": "USE_WHITELIST",
+      "default_value": "0",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|boolean"
+    },
+    {
+      "name": "Super Admin Password",
+      "description": "Password for remote super-admin commands. Leave blank to disable (server.cfg SUPER_ADMIN_PASSWORD / SUPER_ADMIN_PASSWORD_USE). The in-container console (this panel) is always admin regardless of this value.",
+      "env_variable": "SUPER_ADMIN_PASSWORD",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:64"
+    },
+    {
+      "name": "Heap Headroom (MB)",
+      "description": "Memory (MB) held back from the server's allocation for the JVM's off-heap/direct memory, so -Xmx = SERVER_MEMORY - headroom. Prevents OOM kills; raise if the container is killed under load.",
+      "env_variable": "HEAP_HEADROOM_MB",
+      "default_value": "1024",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|between:0,8192"
+    },
+    {
+      "name": "Extra JVM Arguments",
+      "description": "Additional JVM arguments appended to the launch command (e.g. -XX:+UseG1GC -XX:MaxDirectMemorySize=2G). Space-separated.",
+      "env_variable": "EXTRA_JVM_ARGS",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:512"
+    }
+  ]
+}

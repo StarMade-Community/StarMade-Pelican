@@ -1,2 +1,6 @@
 *.DS_Store
 .idea
+
+# Local answer files may contain a panel URL / secrets — never commit them.
+answers.env
+*.answers.env

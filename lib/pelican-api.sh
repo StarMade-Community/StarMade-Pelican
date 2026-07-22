@@ -26,42 +26,48 @@ pelican_require() {
   [ -n "$PANEL_URL" ] && [ -n "$APP_API_KEY" ] || die "Panel URL and API key are required."
 }
 
-# api METHOD PATH [BODY_JSON] — echoes response body; sets API_HTTP to status code.
+# Results of the last api() call. Initialized so `set -u` never trips on them.
+API_HTTP=""
+API_BODY=""
+
+# api METHOD PATH [BODY_JSON]
+# Sets globals API_HTTP (status code) and API_BODY (response body).
+# IMPORTANT: call this DIRECTLY, never as `x="$(api …)"` — command substitution
+# runs in a subshell, so the global assignments would be lost to the caller.
 api() {
-  local method="$1" path="$2" body="${3:-}" tmp code
+  local method="$1" path="$2" body="${3:-}" tmp
   tmp="$(mktemp)"
   if [ -n "$body" ]; then
-    code="$(curl -sS -o "$tmp" -w '%{http_code}' -X "$method" \
+    API_HTTP="$(curl -sS -o "$tmp" -w '%{http_code}' -X "$method" \
       -H "Authorization: Bearer ${APP_API_KEY}" \
       -H "Accept: application/json" -H "Content-Type: application/json" \
-      -d "$body" "${PANEL_URL}/api/application${path}")"
+      -d "$body" "${PANEL_URL}/api/application${path}" || true)"
   else
-    code="$(curl -sS -o "$tmp" -w '%{http_code}' -X "$method" \
+    API_HTTP="$(curl -sS -o "$tmp" -w '%{http_code}' -X "$method" \
       -H "Authorization: Bearer ${APP_API_KEY}" \
       -H "Accept: application/json" \
-      "${PANEL_URL}/api/application${path}")"
+      "${PANEL_URL}/api/application${path}" || true)"
   fi
-  API_HTTP="$code"
-  cat "$tmp"; rm -f "$tmp"
+  API_BODY="$(cat "$tmp")"
+  rm -f "$tmp"
 }
 
 pelican_check_auth() {
-  local out
-  out="$(api GET /users?per_page=1)"
+  api GET "/users?per_page=1"
   case "$API_HTTP" in
     200) ok "Authenticated to $PANEL_URL" ;;
-    401|403) die "Auth failed (HTTP $API_HTTP). Check the application API key." ;;
-    *) die "Panel not reachable (HTTP $API_HTTP) at $PANEL_URL. Response: $(printf '%s' "$out" | head -c 200)" ;;
+    401 | 403) die "Auth failed (HTTP $API_HTTP). Check the application API key (must be an *Application* key with read access)." ;;
+    *) die "Panel not reachable (HTTP ${API_HTTP:-none}) at $PANEL_URL. Response: $(printf '%s' "$API_BODY" | head -c 200)" ;;
   esac
 }
 
 # Resolve an egg id by name (scans all nests). Echoes the id; empty if not found.
 pelican_find_egg_id() {
   local want="${1:-StarMade}" nests id
-  nests="$(api GET /nests?per_page=200)"
-  for id in $(printf '%s' "$nests" | jq -r '.data[].attributes.id'); do
+  api GET "/nests?per_page=200"; nests="$API_BODY"
+  for id in $(printf '%s' "$nests" | jq -r '.data[]?.attributes.id'); do
     local eggs match
-    eggs="$(api GET "/nests/${id}/eggs?per_page=200")"
+    api GET "/nests/${id}/eggs?per_page=200"; eggs="$API_BODY"
     # `first(...)` (not `| head`) so a closed pipe can't SIGPIPE jq under pipefail.
     match="$(printf '%s' "$eggs" | jq -r --arg n "$want" \
       'first(.data[] | select((.attributes.name // "") | ascii_downcase == ($n|ascii_downcase)) | .attributes.id) // empty')"
@@ -74,7 +80,7 @@ pelican_find_egg_id() {
 # matches $1. Echoes "allocId port"; empty if none free.
 pelican_pick_allocation() {
   local node="$1" want_port="${2:-}" allocs
-  allocs="$(api GET "/nodes/${node}/allocations?per_page=500")"
+  api GET "/nodes/${node}/allocations?per_page=500"; allocs="$API_BODY"
   if [ -n "$want_port" ]; then
     local line
     line="$(printf '%s' "$allocs" | jq -r --arg p "$want_port" \
@@ -86,8 +92,8 @@ pelican_pick_allocation() {
 }
 
 # List helpers for interactive selection.
-pelican_list_users() { api GET /users?per_page=200 | jq -r '.data[].attributes | "\(.id)\t\(.username)\t\(.email)"'; }
-pelican_list_nodes() { api GET /nodes?per_page=200 | jq -r '.data[].attributes | "\(.id)\t\(.name)\t(\(.fqdn))"'; }
+pelican_list_users() { api GET "/users?per_page=200"; printf '%s' "$API_BODY" | jq -r '.data[]?.attributes | "\(.id)\t\(.username)\t\(.email)"'; }
+pelican_list_nodes() { api GET "/nodes?per_page=200"; printf '%s' "$API_BODY" | jq -r '.data[]?.attributes | "\(.id)\t\(.name)\t(\(.fqdn))"'; }
 
 # Create the server. Expects the caller to have exported the variables below.
 # Echoes the created server's identifier on success.
@@ -118,7 +124,7 @@ pelican_create_server() {
       start_on_completion: $start
     }')"
   local out
-  out="$(api POST /servers "$body")"
+  api POST "/servers" "$body"; out="$API_BODY"
   if [ "$API_HTTP" = "201" ] || [ "$API_HTTP" = "200" ]; then
     CREATED_UUID="$(printf '%s' "$out" | jq -r '.attributes.uuid // ""')"
     CREATED_IDENTIFIER="$(printf '%s' "$out" | jq -r '.attributes.identifier // ""')"
@@ -126,6 +132,6 @@ pelican_create_server() {
     return 0
   fi
   err "Server creation failed (HTTP $API_HTTP):"
-  printf '%s\n' "$out" | jq -r '(.errors // [] | .[] | "  - \(.detail // .code)")' 2>/dev/null || printf '%s\n' "$out" | head -c 400 >&2
+  printf '%s\n' "$out" | jq -r '(.errors // [] | .[]? | "  - \(.detail // .code)")' 2>/dev/null || printf '%s' "$out" | head -c 400 >&2
   return 1
 }

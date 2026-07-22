@@ -2,9 +2,9 @@
   "_comment": "StarMade egg for Pelican / Pterodactyl. Generated from egg-src/ by build-egg.sh — do not hand-edit egg/egg-starmade.json; edit egg-src/ and rebuild.",
   "meta": {
     "version": "PTDL_v2",
-    "update_url": null
+    "update_url": "https://raw.githubusercontent.com/StarMade-Community/StarMade-Pelican/main/egg/egg-starmade.json"
   },
-  "exported_at": "2026-07-20T19:14:09+0000",
+  "exported_at": "2026-07-22T20:58:08+0000",
   "name": "StarMade",
   "author": "garretreichenbach@gmail.com",
   "description": "StarMade dedicated server. Downloads the current build straight from the official CDN (release/dev/pre/archive branches, any version) and launches it with the correct StarLoader agent + module-open JVM arguments for modern (Java 21) builds. Server settings are driven from panel variables via server.cfg.",
@@ -157,5 +157,6 @@
       "user_editable": true,
       "rules": "nullable|string|max:512"
     }
-  ]
+  ],
+  "uuid": "ce304f92-ff65-4618-9227-a385088d8080"
 }

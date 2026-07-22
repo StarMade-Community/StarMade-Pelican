@@ -5,7 +5,7 @@ automated and prints explicit, one‑time guided steps for the parts that are in
 panel‑UI driven (creating an API key, creating a Node, pointing Wings at it).
 
 ```bash
-git clone https://github.com/garretreichenbach/StarMade-Pelican.git
+git clone https://github.com/StarMade-Community/StarMade-Pelican.git
 cd StarMade-Pelican
 ./setup.sh          # choose "Full setup"
 ```

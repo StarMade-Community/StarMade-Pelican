@@ -19,8 +19,8 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$REPO_ROOT/lib/import-docker.sh"
 
 EGG_PATH="$REPO_ROOT/egg/egg-starmade.json"
-EGG_RAW_URL="https://raw.githubusercontent.com/garretreichenbach/StarMade-Pelican/main/egg/egg-starmade.json"
-USER_EMAIL_DEFAULT="garretreichenbach@gmail.com"
+EGG_RAW_URL="https://raw.githubusercontent.com/StarMade-Community/StarMade-Pelican/main/egg/egg-starmade.json"
+USER_EMAIL_DEFAULT=""
 ASSUME_YES=0
 
 # ── args ───────────────────────────────────────────────────────────────────────

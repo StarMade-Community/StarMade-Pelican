@@ -81,14 +81,19 @@ pelican_find_egg_id() {
 pelican_pick_allocation() {
   local node="$1" want_port="${2:-}" allocs
   api GET "/nodes/${node}/allocations?per_page=500"; allocs="$API_BODY"
+  if [ "$API_HTTP" != "200" ]; then
+    warn "Couldn't list allocations for node ${node} (HTTP ${API_HTTP:-none}). Is the node created and is Wings configured/online?"
+    return 0
+  fi
+  # `.data // []` guards a null/absent data field (no allocations / error body).
   if [ -n "$want_port" ]; then
     local line
     line="$(printf '%s' "$allocs" | jq -r --arg p "$want_port" \
-      'first(.data[] | select((.attributes.assigned==false) and ((.attributes.port|tostring)==$p)) | "\(.attributes.id) \(.attributes.port)") // empty')"
+      'first((.data // [])[] | select((.attributes.assigned==false) and ((.attributes.port|tostring)==$p)) | "\(.attributes.id) \(.attributes.port)") // empty')"
     [ -n "$line" ] && { printf '%s' "$line"; return 0; }
   fi
   printf '%s' "$allocs" | jq -r \
-    'first(.data[] | select(.attributes.assigned==false) | "\(.attributes.id) \(.attributes.port)") // empty'
+    'first((.data // [])[] | select(.attributes.assigned==false) | "\(.attributes.id) \(.attributes.port)") // empty'
 }
 
 # List helpers for interactive selection.

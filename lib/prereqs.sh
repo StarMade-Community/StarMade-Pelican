@@ -79,13 +79,16 @@ ensure_panel() {
   fi
 
   hr
-  warn "One-time panel setup (in the browser + one command):"
+  warn "One-time panel setup (in the browser):"
   cat <<EOF
-  1. Open ${app_url} and complete the web installer if prompted.
-  2. Create your admin user:
-       cd $PELICAN_DIR && ${SUDO:+sudo }docker compose exec panel php artisan p:user:make
-  3. Log in → Admin → API Keys → create an *Application* API key (read/write).
-     You'll paste that key into this script for provisioning.
+  1. Open ${app_url}/installer and complete the first-run installer:
+       • Database:                SQLite  (simplest — no extra container)
+       • Cache / Queue / Session: Database or File  (Redis optional)
+       • Final step:              create your admin account
+     This creates the database AND your admin user — do NOT run
+     'php artisan p:user:make' first (it fails: the DB doesn't exist yet).
+  2. Log in at ${app_url} → Admin → API Keys → create an *Application*
+     API key (read/write). You'll paste that key into this script.
 EOF
   hr
   PANEL_URL="${PANEL_URL:-$app_url}"

@@ -20,14 +20,17 @@ Deploys the panel to `/opt/pelican` from [`templates/panel-compose.yml`](../temp
 (image `ghcr.io/pelican-dev/panel:latest`, SQLite by default — no separate database container).
 You'll be asked for the public URL and a Let's Encrypt email.
 
-Then, one‑time in the browser + one command:
+Then, one‑time in the browser:
 
-1. Open the URL and complete the web installer if prompted.
-2. Create your admin user:
-   ```bash
-   cd /opt/pelican && sudo docker compose exec panel php artisan p:user:make
-   ```
-3. **Admin → API Keys → create an Application API key** (read/write). Keep it handy.
+1. Open **`<panel-url>/installer`** and complete the first‑run installer:
+   - **Database** → **SQLite** (simplest — no extra container; it creates the DB file)
+   - **Cache / Queue / Session** → **Database** or **File** (Redis optional)
+   - The final step creates your **admin account**.
+
+   This creates the database *and* your admin user. Don't run
+   `php artisan p:user:make` beforehand — it fails on a fresh install because the
+   database doesn't exist until the installer runs.
+2. Log in → **Admin → API Keys → create an Application API key** (read/write). Keep it handy.
 
 ### 3. Wings
 Downloads the Wings binary for your architecture to `/usr/local/bin/wings` and installs a

@@ -20,11 +20,11 @@ services:
     volumes:
       - pelican-data:/pelican-data
       - pelican-logs:/var/www/html/storage/logs
-      - type: volume
-        source: pelican-data
-        target: /var/www/html/plugins
-        volume:
-          subpath: plugins
+      # A dedicated volume for plugins rather than the official compose's
+      # `pelican-data` subpath mount: Docker won't mount a volume subpath that
+      # doesn't already exist (fresh installs fail with "no such file or
+      # directory"), and a plain named volume works on every Docker version.
+      - pelican-plugins:/var/www/html/plugins
     environment:
       APP_URL: "__APP_URL__"
       LE_EMAIL: "__LE_EMAIL__"
@@ -38,6 +38,7 @@ services:
 volumes:
   pelican-data:
   pelican-logs:
+  pelican-plugins:
 
 networks:
   default:

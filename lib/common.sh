@@ -40,6 +40,18 @@ ask_secret() {
   printf -v "$__var" '%s' "$__reply"
 }
 
+# pause "message" — print the message and wait for Enter. No-op under ASSUME_YES
+# so non-interactive runs don't hang.
+pause() {
+  local msg="${1:-Press Enter to continue}"
+  if [ "${ASSUME_YES:-0}" = "1" ]; then
+    log "$msg (auto-continuing, --yes)"
+    return 0
+  fi
+  printf '%s' "${C_YEL}${msg}${C_RESET} "
+  read -r _ || true
+}
+
 # confirm "Question" [default y|n] — returns 0 for yes.
 confirm() {
   local q="$1" def="${2:-n}" reply

@@ -92,6 +92,10 @@ ensure_panel() {
 EOF
   hr
   PANEL_URL="${PANEL_URL:-$app_url}"
+
+  # Don't race ahead of the human: wait until they've actually done the browser
+  # steps (installer + admin + API key) before continuing to Wings / provisioning.
+  pause "Open ${app_url}/installer in your browser and finish the two steps above. Press Enter once you're logged in and have created an Application API key…"
 }
 
 # ── Wings ──────────────────────────────────────────────────────────────────────

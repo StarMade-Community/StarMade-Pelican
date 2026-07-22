@@ -17,7 +17,7 @@ current StarMade launcher source and the live CDN**.
 ## Quick start
 
 ```bash
-git clone https://github.com/garretreichenbach/StarMade-Pelican.git
+git clone https://github.com/StarMade-Community/StarMade-Pelican.git
 cd StarMade-Pelican
 ./setup.sh
 ```

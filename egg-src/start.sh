@@ -158,4 +158,4 @@ PORT="${SERVER_PORT:-4242}"
 log "Java ${JAVA_MAJOR} | heap ${XMS}M–${XMX}M | port ${PORT}"
 set -x
 exec java "${JVM_ARGS[@]}" -Xms"${XMS}"M -Xmx"${XMX}"M "${EXTRA[@]}" \
-  -jar StarMade.jar -server -port:"${PORT}"
+  -jar StarMade.jar -server -port:"${PORT}" -autoupdatemods

@@ -132,10 +132,11 @@ fi
 # uses substantial off-heap/direct memory, so reserve headroom to avoid OOM kills.
 MEM="${SERVER_MEMORY:-4096}"
 HEADROOM="${HEAP_HEADROOM_MB:-1024}"
-# SERVER_MEMORY reaches us via the startup command (env SERVER_MEMORY={{SERVER_MEMORY}} …);
-# warn loudly if it looks unset so a silent tiny heap can't slip by again.
+# SERVER_MEMORY is 0 when the server's memory limit is "Unlimited" — there's then no
+# cap to derive a heap from, so fall back to a sane default (and warn) instead of
+# computing 0 - headroom and collapsing to -Xmx512M. Set a real memory limit for big worlds.
 if ! [ "$MEM" -gt 0 ] 2>/dev/null; then
-  log "WARNING: SERVER_MEMORY is unset/invalid ('${SERVER_MEMORY:-}') — is the startup command passing it? Falling back to 4096 MB."
+  log "WARNING: SERVER_MEMORY='${SERVER_MEMORY:-}' (0 = Unlimited limit / unset). No cap to size the heap from — falling back to 4096 MB. Set a real Memory limit in the panel for large servers."
   MEM=4096
 fi
 # A headroom >= memory would produce a negative/tiny heap; cap it instead.

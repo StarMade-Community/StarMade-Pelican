@@ -132,6 +132,17 @@ fi
 # uses substantial off-heap/direct memory, so reserve headroom to avoid OOM kills.
 MEM="${SERVER_MEMORY:-4096}"
 HEADROOM="${HEAP_HEADROOM_MB:-1024}"
+# SERVER_MEMORY reaches us via the startup command (env SERVER_MEMORY={{SERVER_MEMORY}} …);
+# warn loudly if it looks unset so a silent tiny heap can't slip by again.
+if ! [ "$MEM" -gt 0 ] 2>/dev/null; then
+  log "WARNING: SERVER_MEMORY is unset/invalid ('${SERVER_MEMORY:-}') — is the startup command passing it? Falling back to 4096 MB."
+  MEM=4096
+fi
+# A headroom >= memory would produce a negative/tiny heap; cap it instead.
+if [ "$HEADROOM" -ge "$MEM" ] 2>/dev/null; then
+  log "WARNING: HEAP_HEADROOM_MB ($HEADROOM) >= memory ($MEM MB); capping headroom to MEM/8."
+  HEADROOM=$((MEM / 8))
+fi
 XMX=$((MEM - HEADROOM))
 [ "$XMX" -lt 512 ] && XMX=512
 XMS=512

@@ -59,6 +59,15 @@
       "rules": "required|boolean"
     },
     {
+      "name": "Auto-update mods on boot",
+      "description": "Pass -autoupdatemods so StarMade updates its installed mods each launch. Turn off (0) to keep mods at their current versions.",
+      "env_variable": "AUTO_UPDATE_MODS",
+      "default_value": "1",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|boolean"
+    },
+    {
       "name": "Server Name",
       "description": "Public/display name on the server list (server.cfg SERVER_LIST_NAME, max 64 chars).",
       "env_variable": "SERVER_NAME",

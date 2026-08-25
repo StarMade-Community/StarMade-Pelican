@@ -58,15 +58,11 @@ java_major() {
 # ── 1. Optional in-place update ────────────────────────────────────────────────
 
 if [ "$(to_bool "${AUTO_UPDATE:-0}")" = "true" ]; then
-  if command -v unzip >/dev/null 2>&1; then
-    log "AUTO_UPDATE enabled — checking ${STARMADE_BRANCH:-release} branch for a newer build…"
-    if bash ./sm-download.sh; then
-      log "Update check complete."
-    else
-      log "Update failed; continuing with the currently installed build."
-    fi
+  log "AUTO_UPDATE enabled — checking ${STARMADE_BRANCH:-release} branch for a newer build…"
+  if bash ./sm-download.sh; then
+    log "Update check complete."
   else
-    log "AUTO_UPDATE requested but 'unzip' is unavailable in this image — skipping."
+    log "Update failed; continuing with the currently installed build."
   fi
 fi
 
@@ -151,6 +147,10 @@ XMS=512
 
 read -r -a EXTRA <<<"${EXTRA_JVM_ARGS:-}"
 
+# -autoupdatemods makes StarMade update its installed mods on launch.
+SM_ARGS=()
+[ "$(to_bool "${AUTO_UPDATE_MODS:-1}")" = "true" ] && SM_ARGS+=(-autoupdatemods)
+
 # StarMade takes its port ONLY from the -port: flag (colon form) — server.cfg has
 # no port key — so this is how Wings' allocated port takes effect. Default 4242.
 PORT="${SERVER_PORT:-4242}"
@@ -158,4 +158,4 @@ PORT="${SERVER_PORT:-4242}"
 log "Java ${JAVA_MAJOR} | heap ${XMS}M–${XMX}M | port ${PORT}"
 set -x
 exec java "${JVM_ARGS[@]}" -Xms"${XMS}"M -Xmx"${XMX}"M "${EXTRA[@]}" \
-  -jar StarMade.jar -server -port:"${PORT}" -autoupdatemods
+  -jar StarMade.jar -server -port:"${PORT}" "${SM_ARGS[@]}"

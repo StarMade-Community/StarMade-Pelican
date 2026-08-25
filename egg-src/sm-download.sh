@@ -63,7 +63,18 @@ fi
 
 log "Extracting…"
 mkdir -p "$TMP/x"
-unzip -oq "$TMP/sm.zip" -d "$TMP/x"
+# The game images (yolks java_*) ship no `unzip`, so fall back to the JDK's `jar`
+# (always present alongside `java`) and finally to python3. `jar` has no -d flag —
+# it extracts into the working directory — hence the subshell cd.
+if command -v unzip >/dev/null 2>&1; then
+  unzip -oq "$TMP/sm.zip" -d "$TMP/x"
+elif command -v jar >/dev/null 2>&1; then
+  (cd "$TMP/x" && jar xf "$TMP/sm.zip")
+elif command -v python3 >/dev/null 2>&1; then
+  python3 -c 'import sys,zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' "$TMP/sm.zip" "$TMP/x"
+else
+  echo "[download] ERROR: no archive extractor available (need unzip, jar or python3)."; exit 1
+fi
 rm -f "$TMP/sm.zip"   # free ~600 MB before the copy so the volume peak stays low
 
 # The current build zip is rooted (StarMade.jar at top). Stay tolerant of a future

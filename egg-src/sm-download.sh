@@ -43,9 +43,17 @@ fi
 [ -n "$LINE" ] || { echo "[download] ERROR: could not resolve a build."; exit 1; }
 
 VER="$(printf '%s' "$LINE" | cut -d'#' -f1)"
+BUILD_ID="$(printf '%s' "$LINE" | awk '{print $1}')"   # VER#TIMESTAMP — unique per build
 BUILDPATH="$(printf '%s' "$LINE" | awk '{print $2}' | sed 's#^\./##')"
 ZIP_URL="${ORIGIN_BASE}/${BUILDPATH}.zip"
 log "Resolved version ${VER}  ->  ${ZIP_URL}"
+
+# Skip the ~600 MB download when the installed build is already the resolved one.
+# The stamp is written by this script after a successful extract (see bottom).
+if [ -f .sm-build ] && [ "$(cat .sm-build)" = "$BUILD_ID" ] && [ -f StarMade.jar ]; then
+  log "Already on ${BUILD_ID} — nothing to download."
+  exit 0
+fi
 
 # Stage on the server volume (cwd), NOT /tmp: Wings mounts the container's /tmp as
 # a small tmpfs (~100 MB default), so downloading the ~600 MB build there dies with
@@ -90,5 +98,7 @@ fi
 # Merge into the target dir (cwd), overwriting game files but keeping world data.
 cp -a "$SRC/." .
 [ -f StarMade.jar ] || { echo "[download] ERROR: StarMade.jar missing after extraction."; exit 1; }
+
+echo "$BUILD_ID" > .sm-build
 
 log "StarMade ${VER} ready in $(pwd)."

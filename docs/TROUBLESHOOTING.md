@@ -42,3 +42,21 @@ read/write.
 ### Legacy (pre‑0.3) world needs Java 8
 Switch the server's Docker image to `ghcr.io/pterodactyl/yolks:java_8` and set `STARMADE_VERSION`
 to a `< 0.3` build. `start.sh` omits the StarLoader agent + `--add-opens` automatically on Java 8.
+
+### `requires Java 25, but this container has Java 21` on boot
+The installed build is 0.4.6 or newer. Set the Docker image to
+`ghcr.io/pterodactyl/yolks:java_25` (server — **Startup** — Docker Image) and start it again.
+Nothing else changes — the ZGC / compact‑header flags come from `start.sh`.
+
+### The server re‑downloads the whole ~600 MB build on every boot
+`sm-download.sh` skips the download when `.sm-build` (the installed build stamp) already matches
+the build the index resolves to, so this should happen once per update at most. If it keeps
+happening, that server is still running an **old copy of the helper scripts**: they are written
+to the volume by the *install* script, so importing or updating the egg does not refresh them.
+Reinstall the server (server — Settings — **Reinstall**) to get the current `sm-download.sh` and
+`start.sh`; world data is preserved. The current version's boot log starts with
+`[start.sh] StarMade <version> | Java <major> ...`.
+
+Two legitimate causes of a fresh download: `AUTO_UPDATE=1` with `STARMADE_VERSION=latest` pulls
+each **new** build as it is published, and a download that fails part‑way never writes the stamp,
+so the next boot tries again.

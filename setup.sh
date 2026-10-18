@@ -124,7 +124,7 @@ provision_server() {
   SRV_ALLOC="${alloc_line%% *}"
   ok "Using allocation id=$SRV_ALLOC (port ${alloc_line##* })."
 
-  SRV_EGG="$egg_id"; SRV_IMAGE="ghcr.io/pterodactyl/yolks:java_21"
+  SRV_EGG="$egg_id"; SRV_IMAGE="ghcr.io/pterodactyl/yolks:java_25"
   export SRV_NAME SRV_USER SRV_EGG SRV_IMAGE SRV_MEMORY SRV_DISK SRV_CPU SRV_ALLOC SRV_ENV
 
   hr
@@ -152,7 +152,7 @@ migrate_docker_setup() {
   pelican_list_nodes | sed 's/^/    node  /'; local node_id; ask node_id "Node ID" "1"
 
   SRV_NAME="$IMP_NAME"; SRV_MEMORY="$IMP_MEM_MB"; SRV_DISK="20480"; SRV_CPU="0"
-  SRV_EGG="$egg_id"; SRV_IMAGE="ghcr.io/pterodactyl/yolks:java_21"
+  SRV_EGG="$egg_id"; SRV_IMAGE="ghcr.io/pterodactyl/yolks:java_25"
   SRV_START="false"   # don't boot until world data is in place
   SRV_ENV="$(jq -n --arg n "$IMP_NAME" \
     '{STARMADE_BRANCH:"release",STARMADE_VERSION:"latest",AUTO_UPDATE:"0",

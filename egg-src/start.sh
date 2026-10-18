@@ -5,7 +5,7 @@
 # main process. Responsibilities, in order:
 #   1. (optional) AUTO_UPDATE: pull the latest build for the configured branch.
 #   2. Sync selected egg variables into server.cfg (StarMade's `KEY = value` format).
-#   3. Pick JVM arguments based on the container's actual Java major version.
+#   3. Pick JVM arguments for the Java version the installed build requires.
 #   4. exec the StarMade dedicated server so stdin (console / `/shutdown`) reaches it.
 #
 # Everything here is portable POSIX-ish bash so it also runs unmodified during the
@@ -45,7 +45,7 @@ set_cfg() {
   mv "$tmp" server.cfg
 }
 
-# Detect the container's Java major version (8, 17, 21, …).
+# Detect the container's Java major version (8, 17, 21, 25, …).
 java_major() {
   local v
   v="$(java -version 2>&1 | head -1 | sed -E 's/.*version "([^"]+)".*/\1/')"
@@ -53,6 +53,46 @@ java_major() {
     1.*) printf '%s' "$v" | cut -d. -f2 ;; # "1.8.0_x" -> 8
     *) printf '%s' "$v" | cut -d. -f1 ;;   # "21.0.1"  -> 21
   esac
+}
+
+# Java major version a given StarMade version requires. Mirrors
+# getRequiredJavaVersion() in the launcher (electron/java.ts) — keep the two in sync:
+#   >= 0.4.6 -> 25,  >= 0.3 -> 21,  older -> 8.
+# Two version schemes are in play: the legacy one where the minor is a decimal
+# fraction ("0.17", "0.203.175", "0.400.307") and the current counter scheme
+# introduced 2026-08 ("0.4.1", "0.4.6"). A 3-component version with a 1- or 2-digit
+# minor can only be the current scheme, because the legacy one always padded its
+# minor to three digits before it grew a patch component.
+# Prints the required major version, or returns 1 for a string we can't read.
+required_java_for() {
+  local ver="${1:-}" major rest minor patch
+  major="${ver%%.*}"
+  rest="${ver#*.}"
+  [ "$rest" = "$ver" ] && return 1          # no minor component at all
+  minor="${rest%%.*}"
+  patch=""
+  [ "$rest" != "$minor" ] && patch="${rest#*.}"
+  case "$major" in '' | *[!0-9]*) return 1 ;; esac
+  case "$minor" in '' | *[!0-9]*) return 1 ;; esac
+
+  # StarMade 1.x and above are well past the 0.4.6 cut-over.
+  if [ "$major" -ge 1 ]; then printf 25; return 0; fi
+
+  if [ -n "$patch" ] && [ "${#minor}" -le 2 ]; then
+    patch="${patch%%[!0-9]*}"               # "6-rc1" -> 6
+    [ -n "$patch" ] || patch=0
+    if [ "$minor" -gt 4 ] || { [ "$minor" -eq 4 ] && [ "$patch" -ge 6 ]; }; then
+      printf 25
+    else
+      printf 21
+    fi
+    return 0
+  fi
+
+  # Legacy scheme: the minor is a decimal fraction, so compare it as one by
+  # right-padding to three digits — 0.19624 (196) < 0.203 (203) < 0.3 (300) <= 0.400 (400).
+  minor="${minor}00"
+  if [ "${minor:0:3}" -ge 300 ]; then printf 21; else printf 8; fi
 }
 
 # ── 1. Optional in-place update ────────────────────────────────────────────────
@@ -109,18 +149,58 @@ done < <(env)
 # ── 3. JVM arguments ───────────────────────────────────────────────────────────
 
 JAVA_MAJOR="$(java_major)"
+
+# What the *installed build* needs, from the version stamp sm-download.sh writes
+# ("VER#TIMESTAMP"). The container's own Java is not the authority: java_25 can
+# host a 0.4.1 build, and a 0.4.6 build on java_21 must not be launched at all.
+SM_VERSION=""
+REQ_JAVA=""
+if [ -f .sm-build ]; then
+  SM_VERSION="$(cut -d'#' -f1 <.sm-build)"
+  REQ_JAVA="$(required_java_for "$SM_VERSION" || true)"
+fi
+
+if [ -n "$REQ_JAVA" ] && [ "${JAVA_MAJOR:-0}" -lt "$REQ_JAVA" ] 2>/dev/null; then
+  log "ERROR: StarMade ${SM_VERSION} requires Java ${REQ_JAVA}, but this container has Java ${JAVA_MAJOR:-unknown}."
+  log "       Set the server's Docker image to ghcr.io/pterodactyl/yolks:java_${REQ_JAVA} on the"
+  log "       Startup tab (server → Startup → Docker Image) and start it again."
+  exit 1
+fi
+
+if [ -n "$REQ_JAVA" ] && [ "${JAVA_MAJOR:-0}" -gt "$REQ_JAVA" ] 2>/dev/null; then
+  log "NOTE: StarMade ${SM_VERSION} targets Java ${REQ_JAVA}; this container has Java ${JAVA_MAJOR}."
+  log "      Launching with the Java ${REQ_JAVA} argument set. If the server misbehaves, switch the"
+  log "      Docker image to ghcr.io/pterodactyl/yolks:java_${REQ_JAVA}."
+fi
+
+# Fall back to the container's Java when there is no stamp to read (e.g. a build
+# copied in by hand), which is what this script keyed off before the stamp existed.
+TARGET_JAVA="${REQ_JAVA:-${JAVA_MAJOR:-8}}"
+
 JVM_ARGS=()
 # Modern StarMade (>= 0.3, Java 21) loads through StarLoader: the jar is its own
 # javaagent (Premain-Class api.starloader.StarAgent) and needs three java.base
 # packages opened for reflection. These are exactly the args the StarMade launcher
 # and the official server scripts use — omitting the agent is why old eggs break.
 # Legacy Java 8 builds (< 0.3) predate StarLoader and take none of these.
-if [ "${JAVA_MAJOR:-8}" -ge 9 ] 2>/dev/null; then
+if [ "$TARGET_JAVA" -ge 9 ] 2>/dev/null; then
   JVM_ARGS+=(
     -javaagent:StarMade.jar
     --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED
     --add-opens=java.base/java.nio=ALL-UNNAMED
     --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED
+  )
+fi
+
+# StarMade >= 0.4.6 runs on Java 25: generational ZGC keeps GC pauses
+# sub-millisecond (a server allocating hard while streaming sectors feels that as
+# fewer physics/network hitches), and JEP 519 compact object headers — a product
+# option in 25 — cut 4 bytes off every one of the many small objects a world holds.
+# Override either through EXTRA_JVM_ARGS; later flags win.
+if [ "$TARGET_JAVA" -ge 25 ] 2>/dev/null; then
+  JVM_ARGS+=(
+    -XX:+UseZGC
+    -XX:+UseCompactObjectHeaders
   )
 fi
 
@@ -155,7 +235,7 @@ SM_ARGS=()
 # no port key — so this is how Wings' allocated port takes effect. Default 4242.
 PORT="${SERVER_PORT:-4242}"
 
-log "Java ${JAVA_MAJOR} | heap ${XMS}M–${XMX}M | port ${PORT}"
+log "StarMade ${SM_VERSION:-unknown} | Java ${JAVA_MAJOR} (build needs ${REQ_JAVA:-?}) | heap ${XMS}M–${XMX}M | port ${PORT}"
 set -x
 exec java "${JVM_ARGS[@]}" -Xms"${XMS}"M -Xmx"${XMX}"M "${EXTRA[@]}" \
   -jar StarMade.jar -server -port:"${PORT}" "${SM_ARGS[@]}"

@@ -7,12 +7,13 @@
   "exported_at": "1970-01-01T00:00:00+0000",
   "name": "StarMade",
   "author": "garretreichenbach@gmail.com",
-  "description": "StarMade dedicated server. Downloads the current build straight from the official CDN (release/dev/pre/archive branches, any version) and launches it with the correct StarLoader agent + module-open JVM arguments for modern (Java 21) builds. Server settings are driven from panel variables via server.cfg.",
+  "description": "StarMade dedicated server. Downloads the current build straight from the official CDN (release/dev/pre/archive branches, any version) and launches it with the JVM arguments that build needs: the StarLoader agent + module-opens on 0.3+ (Java 21), plus ZGC and compact object headers on 0.4.6+ (Java 25). Server settings are driven from panel variables via server.cfg.",
   "features": [
     "pid_limit"
   ],
   "docker_images": {
-    "Java 21 (StarMade 0.3+)": "ghcr.io/pterodactyl/yolks:java_21",
+    "Java 25 (StarMade 0.4.6+)": "ghcr.io/pterodactyl/yolks:java_25",
+    "Java 21 (StarMade 0.3 - 0.4.5)": "ghcr.io/pterodactyl/yolks:java_21",
     "Java 8 (legacy < 0.3)": "ghcr.io/pterodactyl/yolks:java_8"
   },
   "file_denylist": [],
@@ -42,7 +43,7 @@
     },
     {
       "name": "Version",
-      "description": "Specific StarMade version to install (e.g. 0.304.7), or 'latest' for the newest build on the chosen branch. Invalid versions fall back to latest. Applied on (re)install and, if AUTO_UPDATE is on, at each boot.",
+      "description": "Specific StarMade version to install (e.g. 0.304.7), or 'latest' for the newest build on the chosen branch. Invalid versions fall back to latest. Applied on (re)install and, if AUTO_UPDATE is on, at each boot. Versions >= 0.4.6 need the Java 25 image; 0.3 - 0.4.5 need Java 21; older builds need Java 8.",
       "env_variable": "STARMADE_VERSION",
       "default_value": "latest",
       "user_viewable": true,
@@ -159,7 +160,7 @@
     },
     {
       "name": "Extra JVM Arguments",
-      "description": "Additional JVM arguments appended to the launch command (e.g. -XX:+UseG1GC -XX:MaxDirectMemorySize=2G). Space-separated.",
+      "description": "Additional JVM arguments appended to the launch command (e.g. -XX:MaxDirectMemorySize=2G). Space-separated. Appended after the egg's own flags, so they also override them (e.g. -XX:+UseG1GC replaces ZGC on Java 25).",
       "env_variable": "EXTRA_JVM_ARGS",
       "default_value": "",
       "user_viewable": true,

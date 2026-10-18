@@ -8,7 +8,8 @@ migrate an existing StarMade Docker setup (world data included).
 The public StarMade eggs floating around are years out of date — wrong download URLs, Java 8
 only, and missing the StarLoader agent + module‑open JVM args that modern (0.3xx / Java 21)
 builds require and refuse to start without. This egg is built and **verified against the
-current StarMade launcher source and the live CDN**.
+current StarMade launcher source and the live CDN**, and it picks the Java runtime arguments
+from the version it installed: Java 8 below 0.3, Java 21 up to 0.4.5, Java 25 (ZGC) from 0.4.6.
 
 > **Host requirement:** StarMade ships **x86‑64 (amd64) natives only** — there are no ARM
 > builds of `libStarMadeNative`. Run this on an x86‑64 Linux host. (It also runs on Apple
@@ -54,6 +55,10 @@ What makes it correct for modern StarMade:
        -Xms512M -Xmx<mem-headroom>M -jar StarMade.jar -server -port:<PORT>
   ```
   The `-javaagent` is StarLoader's premain — omit it and modern builds don't start.
+  Builds **>= 0.4.6 need Java 25** and add `-XX:+UseZGC -XX:+UseCompactObjectHeaders`; run those
+  on the `yolks:java_25` image (the egg's default). `start.sh` reads the installed version from
+  its `.sm-build` stamp, picks the matching argument set, and refuses to boot — naming the image
+  to switch to — rather than letting a 0.4.6 build crash on Java 21.
 - **Config:** panel variables are written into `server.cfg` on boot (e.g. `SERVER_LIST_NAME`,
   `MAX_CLIENTS`, authentication, whitelist, super‑admin password). Any of StarMade's ~210
   settings can be set by adding a panel variable named `SMCFG_<KEY>`.
@@ -88,6 +93,6 @@ docs/                   guides
 
 The **egg runtime** is verified end‑to‑end: install → correct JVM args → StarLoader agent →
 `server.cfg` sync → world generation → `now waiting for connections` → `/shutdown` clean save,
-in a `linux/amd64` `ghcr.io/pterodactyl/yolks:java_21` container. The **Panel/Wings turnkey
+in a `linux/amd64` `ghcr.io/pterodactyl/yolks:java_25` container. The **Panel/Wings turnkey
 install** is syntax‑checked and logic‑reviewed; run it on your target x86‑64 Linux host to
 validate against your environment.

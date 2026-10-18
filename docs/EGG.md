@@ -40,7 +40,10 @@ java -javaagent:StarMade.jar \
 ```
 
 - `-javaagent:StarMade.jar` — StarLoader `Premain-Class`. Required on modern builds.
-- The three `--add-opens` — required for Java 21 reflection.
+- The three `--add-opens` — required for Java 21+ reflection.
+- On **0.4.6+** (Java 25) two more flags are added: `-XX:+UseZGC` (generational ZGC — low
+  pause times under heavy sector streaming) and `-XX:+UseCompactObjectHeaders` (JEP 519,
+  8‑byte object headers; a product option in 25). Override either via `EXTRA_JVM_ARGS`.
 - `-port:<n>` is **colon form**. There is no port key in `server.cfg`, so this flag is the only
   way to change the port (default 4242).
 - `-force` is a **client** flag and is intentionally *not* used for the server.
@@ -73,7 +76,8 @@ Examples: `SMCFG_SECTOR_SIZE`, `SMCFG_ENEMY_SPAWNING`, `SMCFG_SERVER_LIST_DESCRI
 ## Other variables
 
 - `STARMADE_BRANCH` — `release` / `dev` / `pre` / `archive`.
-- `STARMADE_VERSION` — a version like `0.304.7`, or `latest`.
+- `STARMADE_VERSION` — a version like `0.304.7`, or `latest`. The version decides which Java
+  runtime is needed (see below), so switch the Docker image to match when you pin an old build.
 - `AUTO_UPDATE` — re‑pull latest on each boot (`0`/`1`).
 - `HEAP_HEADROOM_MB` — memory held back from `-Xmx` for the JVM's off‑heap/direct buffers
   (StarMade uses a lot). Raise if the container is OOM‑killed under load.
@@ -81,8 +85,13 @@ Examples: `SMCFG_SECTOR_SIZE`, `SMCFG_ENEMY_SPAWNING`, `SMCFG_SERVER_LIST_DESCRI
 
 ## Docker images
 
-- `ghcr.io/pterodactyl/yolks:java_21` (default) — StarMade 0.3xx+.
+- `ghcr.io/pterodactyl/yolks:java_25` (default) — StarMade 0.4.6+.
+- `ghcr.io/pterodactyl/yolks:java_21` — StarMade 0.3 ‑ 0.4.5.
 - `ghcr.io/pterodactyl/yolks:java_8` — legacy < 0.3 worlds only.
 
-`start.sh` adds the StarLoader agent + `--add-opens` only on Java 9+, so it does the right thing
-for either image.
+`start.sh` works out which Java the *installed build* needs from the `.sm-build` version stamp
+(`required_java_for()`, mirroring `getRequiredJavaVersion()` in the launcher's `electron/java.ts`;
+`egg-src/test-required-java.sh` checks the mapping) and uses that argument set, so an image newer
+than the build needs is safe. If the image is **older** than the build requires, it stops with the
+image name to switch to instead of handing you a JVM crash. With no stamp (files copied in by
+hand) it falls back to the container's own Java version.
